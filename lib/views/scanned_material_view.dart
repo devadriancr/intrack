@@ -25,16 +25,32 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   void initState() {
     super.initState();
     _databaseService = DatabaseService();
-    _databaseService.initializeDatabase();
-    _loadRecords();
+    _initializeDatabase(); // Llamar a un método que espera la inicialización de la base de datos
   }
 
-  // Cargar los registros desde la base de datos
+  Future<void> _initializeDatabase() async {
+    await _databaseService
+        .initializeDatabase(); // Esperar a que la base de datos esté lista
+    _loadRecords(); // Cargar los registros después de que la base de datos esté inicializada
+  }
+
+  // Cargar los registros desde la base de datos filtrados por container_id
+  // y ordenados por created_at de forma descendente
   Future<void> _loadRecords() async {
-    final records = await _databaseService.loadRecords(widget.containerId);
-    setState(() {
-      _records = records;
-    });
+    try {
+      final records = await _databaseService.loadRecords(widget.containerId);
+      setState(() {
+        _records = records;
+      });
+
+      // Agregar depuración para ver si los datos se cargaron correctamente
+      print('Registros cargados: ${_records.length}'); // Depuración
+    } catch (e) {
+      // Mostrar un mensaje de error si algo sale mal
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar los registros: $e')),
+      );
+    }
   }
 
   // Insertar los datos en la base de datos
@@ -63,7 +79,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Datos guardados en la base de datos.')),
       );
-      _loadRecords();
+      _loadRecords(); // Recargar los registros después de insertar
     }
   }
 
@@ -152,7 +168,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                    'Serial: ${record['supplier']} ${record['serial']}'),
+                                    'Serial: ${record['supplier']}${record['serial']}'),
                                 // Text(
                                 //     'Fecha: ${_formatTimestamp(record['created_at'] ?? '')}'),
                               ],

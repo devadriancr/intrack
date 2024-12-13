@@ -15,7 +15,14 @@ class _ContainerListViewState extends State<ContainerListView> {
   @override
   void initState() {
     super.initState();
-    _containers = _controller.getContainers();
+    _loadContainers();
+  }
+
+  // Método para cargar contenedores
+  Future<void> _loadContainers() async {
+    setState(() {
+      _containers = _controller.getContainers();
+    });
   }
 
   @override
@@ -34,27 +41,32 @@ class _ContainerListViewState extends State<ContainerListView> {
           }
 
           final containers = snapshot.data!;
-          return ListView.builder(
-            itemCount: containers.length,
-            itemBuilder: (context, index) {
-              final container = containers[index];
-              return ListTile(
-                title: Text('${container.code}'),
-                subtitle: Text(
-                    'Fecha: ${container.arrivalDate} Hora: ${container.arrivalTime}'),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ScannedMaterialView(
-                        containerId: container.id,
-                        containerCode: container.code,
+
+          return RefreshIndicator(
+            onRefresh:
+                _loadContainers, // Actualiza la lista cuando se hace pull down
+            child: ListView.builder(
+              itemCount: containers.length,
+              itemBuilder: (context, index) {
+                final container = containers[index];
+                return ListTile(
+                  title: Text('${container.code}'),
+                  subtitle: Text(
+                      'Fecha: ${container.arrivalDate} Hora: ${container.arrivalTime}'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ScannedMaterialView(
+                          containerId: container.id,
+                          containerCode: container.code,
+                        ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
+                    );
+                  },
+                );
+              },
+            ),
           );
         },
       ),

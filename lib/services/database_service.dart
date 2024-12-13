@@ -7,7 +7,7 @@ class DatabaseService {
   Future<void> initializeDatabase() async {
     final databasePath = await getDatabasesPath();
     final path = join(databasePath, 'scanned_materials.db');
-    _database = await openDatabase(path, version: 1, onCreate: _onCreate);
+    _database = await openDatabase(path, version: 2, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -19,16 +19,18 @@ class DatabaseService {
       part_qty INTEGER,
       supplier TEXT,
       serial TEXT,
+      status INTEGER DEFAULT 1,
       created_at TEXT
     )
     ''');
   }
 
-  // Cargar registros desde la base de datos, filtrados por container_id y ordenados por created_at
+  // Cargar registros desde la base de datos, filtrados por container_id y status = true, y ordenados por created_at
   Future<List<Map<String, dynamic>>> loadRecords(int containerId) async {
     return await _database.query(
       'scanned_material',
-      where: 'container_id = ?',
+      where:
+          'container_id = ? AND status = 1', // Filtrar solo los registros con status = true (1)
       whereArgs: [containerId],
       orderBy: 'created_at DESC', // Ordenar por created_at en orden descendente
     );
@@ -55,6 +57,7 @@ class DatabaseService {
       'part_qty': partQty,
       'supplier': supplier,
       'serial': serial,
+      'status': 1,
       'created_at': DateTime.now().toIso8601String(),
     });
   }

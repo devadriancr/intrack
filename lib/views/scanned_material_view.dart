@@ -19,41 +19,40 @@ class ScannedMaterialView extends StatefulWidget {
 class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   late DatabaseService _databaseService;
   final TextEditingController _inputController = TextEditingController();
+  late FocusNode _focusNode; // Declara un FocusNode
   List<Map<String, dynamic>> _records = [];
 
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode(); // Inicializa el FocusNode
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode
+          .requestFocus(); // Solicita el enfoque después de que el widget esté montado
+    });
     _databaseService = DatabaseService();
-    _initializeDatabase(); // Llamar a un método que espera la inicialización de la base de datos
+    _initializeDatabase();
   }
 
   Future<void> _initializeDatabase() async {
-    await _databaseService
-        .initializeDatabase(); // Esperar a que la base de datos esté lista
-    _loadRecords(); // Cargar los registros después de que la base de datos esté inicializada
+    await _databaseService.initializeDatabase();
+    _loadRecords();
   }
 
-  // Cargar los registros desde la base de datos filtrados por container_id
-  // y ordenados por created_at de forma descendente
   Future<void> _loadRecords() async {
     try {
       final records = await _databaseService.loadRecords(widget.containerId);
       setState(() {
         _records = records;
       });
-
-      // Agregar depuración para ver si los datos se cargaron correctamente
-      print('Registros cargados: ${_records.length}'); // Depuración
+      print('Registros cargados: ${_records.length}');
     } catch (e) {
-      // Mostrar un mensaje de error si algo sale mal
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar los registros: $e')),
       );
     }
   }
 
-  // Insertar los datos en la base de datos
   Future<void> _insertData(
       String partNo, int partQty, String supplier, String serial) async {
     final isRegistered = await _databaseService.isMaterialRegistered(
@@ -79,11 +78,10 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Datos guardados en la base de datos.')),
       );
-      _loadRecords(); // Recargar los registros después de insertar
+      _loadRecords();
     }
   }
 
-  // Procesar la entrada del usuario
   void _processInput() {
     String input = _inputController.text.trim().toUpperCase();
     List<String> dataParts = input.split(',');
@@ -97,6 +95,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
       _insertData(partNo, partQty, supplier, serial);
 
       _inputController.clear();
+      _focusNode.requestFocus(); // Asegúrate de reenfocar el campo
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Formato de entrada inválido.')),
@@ -104,7 +103,6 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
     }
   }
 
-  // Función para formatear la fecha
   String _formatTimestamp(String timestamp) {
     try {
       DateTime dateTime = DateTime.parse(timestamp);
@@ -126,6 +124,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
           children: [
             TextField(
               controller: _inputController,
+              focusNode: _focusNode, // Asocia el FocusNode al TextField
               autofocus: true,
               onSubmitted: (value) => _processInput(),
               decoration: const InputDecoration(
@@ -151,17 +150,14 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
                           margin: const EdgeInsets.symmetric(vertical: 8.0),
                           child: ListTile(
                             title: Row(
-                              mainAxisAlignment: MainAxisAlignment
-                                  .spaceBetween, // Esto hace que el texto se distribuya entre los extremos
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(record['part_no'] ?? '',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight
-                                            .bold)), // Texto a la izquierda
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 Text(record['part_qty'].toString(),
-                                    style: TextStyle(
-                                        fontWeight: FontWeight
-                                            .bold)), // Número de parte a la derecha
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                             subtitle: Column(
@@ -169,8 +165,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
                               children: [
                                 Text(
                                     'Serial: ${record['supplier']}${record['serial']}'),
-                                // Text(
-                                //     'Fecha: ${_formatTimestamp(record['created_at'] ?? '')}'),
+                                Text('Estado: ${record['status']}')
                               ],
                             ),
                           ),
@@ -187,6 +182,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   @override
   void dispose() {
     _inputController.dispose();
+    _focusNode.dispose(); // Limpia el FocusNode
     _databaseService.closeDatabase();
     super.dispose();
   }

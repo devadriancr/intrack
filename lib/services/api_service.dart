@@ -3,9 +3,10 @@ import 'package:http/http.dart' as http;
 import '../models/container.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.170.133:8000/api/containers";
+  static const String baseUrl =
+      "http://192.168.130.9:8088/index.php/api/containers";
   static const String scanUrl =
-      "http://192.168.170.133:8000/api/scanned-material";
+      "http://192.168.130.9:8088/index.php/api/scanned-material";
 
   Future<List<ContainerModel>> fetchContainers() async {
     try {

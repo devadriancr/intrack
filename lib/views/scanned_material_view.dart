@@ -48,8 +48,14 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   Future<void> _loadRecords() async {
     try {
       final records = await _databaseService.loadRecords(widget.containerId);
+      // Filtrar los registros con status = true
+      final filteredRecords = records
+          .where((record) =>
+              record['status'] == 1 &&
+              record['container_id'] == widget.containerId)
+          .toList();
       setState(() {
-        _records = records;
+        _records = filteredRecords;
       });
       print('Registros cargados: ${_records.length}');
     } catch (e) {
@@ -89,43 +95,57 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   }
 
   Future<void> _uploadScanData() async {
-    if (_partNo != null &&
-        _partQty != null &&
-        _supplier != null &&
-        _serial != null) {
-      setState(() {
-        _isProcessing = true;
-      });
+    if (_isProcessing) return; // Evitar duplicados
+    setState(() {
+      _isProcessing = true;
+    });
 
-      try {
+    try {
+      // Filtrar los registros que tienen status = true
+      final recordsToUpload =
+          _records.where((record) => record['status'] == 1).toList();
+
+      for (var record in recordsToUpload) {
         final response = await _apiService.uploadScannedMaterial(
-          _partNo!,
-          _partQty!,
-          _supplier!,
-          _serial!,
+          record['part_no'],
+          record['part_qty'],
+          record['supplier'],
+          record['serial'],
           widget.containerId,
         );
 
         if (response) {
-          await _databaseService.updateStatus(_partNo!, widget.containerId);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Escaneo cargado correctamente.')),
+          await _databaseService.updateStatus(
+            record['part_no'],
+            widget.containerId,
           );
-          _clearFields();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error al cargar el escaneo.')),
+            const SnackBar(content: Text('Error al cargar un escaneo.')),
           );
+          break; // Si ocurre un error, se detiene el envío de registros
         }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al procesar el escaneo: $e')),
-        );
-      } finally {
-        setState(() {
-          _isProcessing = false;
-        });
       }
+
+      if (recordsToUpload.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Escaneos cargados correctamente.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay registros para cargar.')),
+        );
+      }
+
+      _loadRecords(); // Recargar los registros después de la actualización
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al procesar el escaneo: $e')),
+      );
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
@@ -187,9 +207,21 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _isProcessing ? null : _uploadScanData,
+              style: ElevatedButton.styleFrom(
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
               child: _isProcessing
                   ? const CircularProgressIndicator()
                   : const Text('Cargar escaneo'),
+            ),
+            SizedBox(height: 16.0), // Ajusta el valor para el espacio deseado
+            Text(
+              'Contador: ${_records.length}',
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
             const SizedBox(height: 20),
             Expanded(

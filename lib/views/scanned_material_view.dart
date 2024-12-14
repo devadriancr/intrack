@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intrack/services/database_service.dart';
-import 'package:intl/intl.dart';
+import 'package:intrack/services/api_service.dart';
 
 class ScannedMaterialView extends StatefulWidget {
   final int containerId;
@@ -18,19 +18,25 @@ class ScannedMaterialView extends StatefulWidget {
 
 class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   late DatabaseService _databaseService;
+  late ApiService _apiService;
   final TextEditingController _inputController = TextEditingController();
-  late FocusNode _focusNode; // Declara un FocusNode
+  late FocusNode _focusNode;
   List<Map<String, dynamic>> _records = [];
+  bool _isProcessing = false;
+  String? _partNo;
+  int? _partQty;
+  String? _supplier;
+  String? _serial;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode(); // Inicializa el FocusNode
+    _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode
-          .requestFocus(); // Solicita el enfoque después de que el widget esté montado
+      _focusNode.requestFocus();
     });
     _databaseService = DatabaseService();
+    _apiService = ApiService();
     _initializeDatabase();
   }
 
@@ -82,20 +88,63 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
     }
   }
 
+  Future<void> _uploadScanData() async {
+    if (_partNo != null &&
+        _partQty != null &&
+        _supplier != null &&
+        _serial != null) {
+      setState(() {
+        _isProcessing = true;
+      });
+
+      try {
+        final response = await _apiService.uploadScannedMaterial(
+          _partNo!,
+          _partQty!,
+          _supplier!,
+          _serial!,
+          widget.containerId,
+        );
+
+        if (response) {
+          await _databaseService.updateStatus(_partNo!, widget.containerId);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Escaneo cargado correctamente.')),
+          );
+          _clearFields();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al cargar el escaneo.')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al procesar el escaneo: $e')),
+        );
+      } finally {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    }
+  }
+
   void _processInput() {
     String input = _inputController.text.trim().toUpperCase();
     List<String> dataParts = input.split(',');
 
     if (dataParts.length > 13) {
-      int partQty = int.tryParse(dataParts[10]) ?? 0;
-      String supplier = dataParts[11];
-      String serial = dataParts[13];
-      String partNo = dataParts.last;
+      setState(() {
+        _partQty = int.tryParse(dataParts[10]) ?? 0;
+        _supplier = dataParts[11];
+        _serial = dataParts[13];
+        _partNo = dataParts.last;
+      });
 
-      _insertData(partNo, partQty, supplier, serial);
+      _insertData(_partNo!, _partQty!, _supplier!, _serial!);
 
       _inputController.clear();
-      _focusNode.requestFocus(); // Asegúrate de reenfocar el campo
+      _focusNode.requestFocus();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Formato de entrada inválido.')),
@@ -103,13 +152,15 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
     }
   }
 
-  String _formatTimestamp(String timestamp) {
-    try {
-      DateTime dateTime = DateTime.parse(timestamp);
-      return DateFormat('yyyy-MM-dd HH:mm:ss').format(dateTime);
-    } catch (e) {
-      return 'Fecha inválida';
-    }
+  void _clearFields() {
+    setState(() {
+      _partNo = null;
+      _partQty = null;
+      _supplier = null;
+      _serial = null;
+    });
+    _inputController.clear();
+    _focusNode.requestFocus();
   }
 
   @override
@@ -124,7 +175,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
           children: [
             TextField(
               controller: _inputController,
-              focusNode: _focusNode, // Asocia el FocusNode al TextField
+              focusNode: _focusNode,
               autofocus: true,
               onSubmitted: (value) => _processInput(),
               decoration: const InputDecoration(
@@ -135,8 +186,10 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _processInput,
-              child: const Text('Procesar'),
+              onPressed: _isProcessing ? null : _uploadScanData,
+              child: _isProcessing
+                  ? const CircularProgressIndicator()
+                  : const Text('Cargar escaneo'),
             ),
             const SizedBox(height: 20),
             Expanded(
@@ -165,7 +218,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
                               children: [
                                 Text(
                                     'Serial: ${record['supplier']}${record['serial']}'),
-                                Text('Estado: ${record['status']}')
+                                Text('Estado: ${record['status']}'),
                               ],
                             ),
                           ),
@@ -182,7 +235,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   @override
   void dispose() {
     _inputController.dispose();
-    _focusNode.dispose(); // Limpia el FocusNode
+    _focusNode.dispose();
     _databaseService.closeDatabase();
     super.dispose();
   }

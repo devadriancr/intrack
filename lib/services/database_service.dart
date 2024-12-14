@@ -7,7 +7,7 @@ class DatabaseService {
   Future<void> initializeDatabase() async {
     final databasePath = await getDatabasesPath();
     final path = join(databasePath, 'scanned_materials.db');
-    _database = await openDatabase(path, version: 2, onCreate: _onCreate);
+    _database = await openDatabase(path, version: 3, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -20,7 +20,7 @@ class DatabaseService {
       supplier TEXT,
       serial TEXT,
       status INTEGER DEFAULT 1,
-      created_at TEXT
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''');
   }
@@ -57,12 +57,16 @@ class DatabaseService {
       'part_qty': partQty,
       'supplier': supplier,
       'serial': serial,
-      'status': 1,
-      'created_at': DateTime.now().toIso8601String(),
     });
   }
 
-  void closeDatabase() {
-    _database.close();
+  Future<void> updateStatus(String partNo, int containerId) async {
+    await _database.update('scanned_material', {'status': 'scanned'},
+        where: 'part_no = ? AND container_id = ?',
+        whereArgs: [partNo, containerId]);
+  }
+
+  Future<void> closeDatabase() async {
+    await _database.close();
   }
 }

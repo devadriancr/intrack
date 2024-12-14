@@ -4,8 +4,9 @@ import '../models/container.dart';
 
 class ApiService {
   static const String baseUrl = "http://192.168.170.133:8000/api/containers";
+  static const String scanUrl =
+      "http://192.168.170.133:8000/api/scanned-material";
 
-  // Método para obtener todos los contenedores
   Future<List<ContainerModel>> fetchContainers() async {
     try {
       final response = await http.get(Uri.parse(baseUrl));
@@ -25,6 +26,31 @@ class ApiService {
       }
     } catch (e) {
       throw Exception("Error de conexión: $e");
+    }
+  }
+
+  Future<bool> uploadScannedMaterial(String partNo, int partQty,
+      String supplier, String serial, int containerId) async {
+    final url = Uri.parse(scanUrl);
+    final headers = {"Content-Type": "application/json"};
+    final body = json.encode({
+      "part_no": partNo,
+      "part_qty": partQty.toString(),
+      "supplier": supplier,
+      "serial": serial,
+      "container_id": containerId.toString(),
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      throw Exception('Error al conectar con la API: $e');
     }
   }
 }

@@ -48,7 +48,6 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   Future<void> _loadRecords() async {
     try {
       final records = await _databaseService.loadRecords(widget.containerId);
-      // Filtrar los registros con status = true
       final filteredRecords = records
           .where((record) =>
               record['status'] == 1 &&
@@ -95,13 +94,12 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
   }
 
   Future<void> _uploadScanData() async {
-    if (_isProcessing) return; // Evitar duplicados
+    if (_isProcessing) return;
     setState(() {
       _isProcessing = true;
     });
 
     try {
-      // Filtrar los registros que tienen status = true
       final recordsToUpload =
           _records.where((record) => record['status'] == 1).toList();
 
@@ -123,7 +121,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Error al cargar un escaneo.')),
           );
-          break; // Si ocurre un error, se detiene el envío de registros
+          break;
         }
       }
 
@@ -137,7 +135,7 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
         );
       }
 
-      _loadRecords(); // Recargar los registros después de la actualización
+      _loadRecords();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al procesar el escaneo: $e')),
@@ -233,26 +231,61 @@ class _ScannedMaterialViewState extends State<ScannedMaterialView> {
                         final record = _records[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8.0),
+                          elevation: 5,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 12.0),
                             title: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(record['part_no'] ?? '',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
-                                Text(record['part_qty'].toString(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                Text(
+                                  record['part_no'] ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16.0,
+                                  ),
+                                ),
+                                Text(
+                                  record['part_qty'].toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16.0,
+                                  ),
+                                ),
                               ],
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const SizedBox(height: 4.0),
                                 Text(
-                                    'Serial: ${record['supplier']}${record['serial']}'),
-                                Text('Estado: ${record['status']}'),
+                                  'Serial: ${record['serial']}',
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 4.0),
+                                // Text(
+                                //   'Estado: ${record['status']}',
+                                //   style: TextStyle(
+                                //     color: Colors.grey[700],
+                                //     fontSize: 14.0,
+                                //   ),
+                                // ),
                               ],
                             ),
+                            // trailing: Icon(
+                            //   Icons.arrow_forward_ios,
+                            //   size: 16.0,
+                            //   color: Colors.blueAccent,
+                            // ),
+                            onTap: () {
+                              // Acción al hacer clic en la card (puedes agregar funcionalidad aquí)
+                            },
                           ),
                         );
                       },
